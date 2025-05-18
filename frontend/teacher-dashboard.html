@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <title>Teacher Dashboard</title>
+</head>
+<body>
+
+
+  <style>  
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 30px auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    #add-student-btn {
+      margin-bottom: 15px;
+      padding: 10px 20px;
+      background-color: #2c7be5;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    label {
+      font-weight: bold;
+    }
+
+    #attendance-date {
+      padding: 8px;
+      font-size: 16px;
+      margin: 10px 0 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 25px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #2c7be5;
+      color: white;
+    }
+
+    .attendance-btn {
+      padding: 6px 12px;
+      margin-right: 5px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-radius: 4px;
+    }
+
+    .present {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .absent {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .selected.present {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .selected.absent {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    #submit-attendance {
+      background-color: #2c7be5;
+      color: white;
+      padding: 12px 30px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #submit-attendance:disabled {
+      background-color: #888;
+      cursor: not-allowed;
+    }
+
+    #attendance-msg {
+      margin-top: 15px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    /* Modal Styles */
+    #add-student-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    #add-student-modal .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 300px;
+    }
+
+    #add-student-modal input {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    #add-student-modal input.invalid {
+      border-color: red;
+    }
+
+    #add-student-modal button {
+      padding: 8px 14px;
+      margin-top: 5px;
+      margin-right: 5px;
+    }
+
+    #add-student-msg {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+
+  <div class="container">
+    <h1>Teacher Dashboard</h1>
+      
+    <button id="add-student-btn">Add Student</button>
+
+    <label for="attendance-date">Select Date:</label>
+    <input type="date" id="attendance-date"/>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Present</th>
+          <th>Absent</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="student-table-body"></tbody>
+    </table>
+
+    <button id="submit-attendance">Submit Attendance</button>
+    <div id="attendance-msg"></div>
+  </div>
+  <button id="logoutBtn" style="
+  position: fixed; bottom:40px; right:150px; padding: 0.5rem 1rem;
+  background-color: #e53935; color: white; border: none; border-radius: 5px;
+  cursor: pointer;
+">Logout</button>
+
+  <!-- Add Student Modal -->
+  <div id="add-student-modal">
+    <div class="modal-content">
+      <h3>Add New Student</h3>
+      <input type="text" id="student-name" placeholder="Student Name" />
+      <input type="text" id="student-roll" placeholder="Roll Number" />
+      <input type="text" id="student-class" placeholder="Class" />
+      <button id="save-student-btn">Save</button>
+      <button id="cancel-student-btn">Cancel</button>
+      <div id="add-student-msg"></div>
+    </div>
+  </div>
+
+  <script>
+    const studentTableBody = document.getElementById("student-table-body");
+    const attendanceDate = document.getElementById("attendance-date");
+    const attendanceMsg = document.getElementById("attendance-msg");
+    const submitAttendanceBtn = document.getElementById("submit-attendance");
+
+    const today = new Date().toISOString().split("T")[0];
+    attendanceDate.value = today;
+    attendanceDate.max = today;
+
+    let students = [];
+
+    async function fetchStudents() {
+      try {
+        const res = await fetch("http://localhost:3000/students");
+        students = await res.json();
+        renderStudents();
+      } catch (err) {
+        attendanceMsg.textContent = "Error loading students";
+        attendanceMsg.style.color = "red";
+      }
+    }
+
+    function renderStudents() {
+      studentTableBody.innerHTML = "";
+      students.forEach(student => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${student.id}</td>
+          <td>${student.name}</td>
+          <td><button class="attendance-btn present" data-student-id="${student.id}">Present</button></td>
+          <td><button class="attendance-btn absent" data-student-id="${student.id}">Absent</button></td>
+          <td>
+            <button class="delete-btn" data-student-id="${student.id}" 
+              style="background:#e74c3c; color:white; padding:6px 12px; border:none; border-radius:5px; cursor:pointer;">
+              Delete
+            </button>
+          </td>
+        `;
+        studentTableBody.appendChild(tr);
+      });
+    }
+
+    studentTableBody.addEventListener("click", async (e) => {
+      if (e.target.classList.contains("attendance-btn")) {
+        const id = e.target.dataset.studentId;
+        document.querySelectorAll(`[data-student-id="${id}"]`).forEach(btn => btn.classList.remove("selected"));
+        e.target.classList.add("selected");
+      }
+
+      if (e.target.classList.contains("delete-btn")) {
+        const studentId = e.target.getAttribute("data-student-id");
+        const confirmed = confirm("Are you sure you want to delete this student?");
+        if (confirmed) {
+          try {
+            const res = await fetch(`http://localhost:3000/students/${studentId}`, {
+              method: "DELETE",
+            });
+
+            if (!res.ok) throw new Error("Failed to delete student");
+
+            alert("Student deleted successfully.");
+            await fetchStudents();
+          } catch (err) {
+            alert("Error deleting student: " + err.message);
+          }
+        }
+      }
+    });
+
+    submitAttendanceBtn.addEventListener("click", async () => {
+      const date = attendanceDate.value;
+      const records = [];
+
+      let allMarked = true;
+
+      students.forEach(student => {
+        const presentBtn = document.querySelector(`.present[data-student-id="${student.id}"]`);
+        const absentBtn = document.querySelector(`.absent[data-student-id="${student.id}"]`);
+
+        if (presentBtn.classList.contains("selected")) {
+          records.push({ student_id: student.id, date, status: "present" });
+        } else if (absentBtn.classList.contains("selected")) {
+          records.push({ student_id: student.id, date, status: "absent" });
+        } else {
+          allMarked = false;
+        }
+      });
+
+      if (!allMarked) {
+        attendanceMsg.textContent = "Please mark attendance for all students.";
+        attendanceMsg.style.color = "red";
+        return;
+      }
+
+      submitAttendanceBtn.disabled = true;
+      attendanceMsg.textContent = "Submitting...";
+      attendanceMsg.style.color = "#000";
+
+      try {
+        const res = await fetch("http://localhost:3000/attendance/mark", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(records),
+        });
+
+        if (!res.ok) throw new Error("Failed to submit attendance");
+
+        attendanceMsg.textContent = "Attendance submitted!";
+        attendanceMsg.style.color = "green";
+      } catch (err) {
+        attendanceMsg.textContent = err.message;
+        attendanceMsg.style.color = "red";
+      } finally {
+        submitAttendanceBtn.disabled = false;
+      }
+    });
+
+    // Add Student Modal Logic
+    const addStudentBtn = document.getElementById("add-student-btn");
+    const addStudentModal = document.getElementById("add-student-modal");
+    const saveStudentBtn = document.getElementById("save-student-btn");
+    const cancelStudentBtn = document.getElementById("cancel-student-btn");
+    const addStudentMsg = document.getElementById("add-student-msg");
+
+    addStudentBtn.addEventListener("click", () => {
+      addStudentModal.style.display = "flex";
+      addStudentMsg.textContent = "";
+    });
+
+    cancelStudentBtn.addEventListener("click", () => {
+      addStudentModal.style.display = "none";
+    });
+
+    saveStudentBtn.addEventListener("click", async () => {
+      const nameInput = document.getElementById("student-name");
+      const rollInput = document.getElementById("student-roll");
+      const classInput = document.getElementById("student-class");
+
+      const name = nameInput.value.trim();
+      const roll = rollInput.value.trim();
+      const studentClass = classInput.value.trim();
+
+      // Clear previous validation
+      [nameInput, rollInput, classInput].forEach(input => input.classList.remove("invalid"));
+
+      if (!name || !roll || !studentClass) {
+        addStudentMsg.textContent = "Please fill all fields.";
+        addStudentMsg.style.color = "red";
+
+        if (!name) nameInput.classList.add("invalid");
+        if (!roll) rollInput.classList.add("invalid");
+        if (!studentClass) classInput.classList.add("invalid");
+
+        return;
+      }
+
+      try {
+        const res = await fetch("http://localhost:3000/students", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, roll_number: roll, class: studentClass }),
+        });
+
+        if (!res.ok) throw new Error("Failed to add student");
+
+        addStudentMsg.textContent = "Student added!";
+        addStudentMsg.style.color = "green";
+
+        await fetchStudents();
+
+        setTimeout(() => {
+          addStudentModal.style.display = "none";
+          nameInput.value = "";
+          rollInput.value = "";
+          classInput.value = "";
+        }, 1000);
+      } catch (err) {
+        addStudentMsg.textContent = err.message;
+        addStudentMsg.style.color = "red";
+      }
+    });
+
+    fetchStudents();
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+  localStorage.removeItem("role"); // Or whatever key you used for session
+  localStorage.removeItem("userId");
+  window.location.href = "login.html"; // Adjust the path if needed
+});
+
+  </script>
+</body>
+</html>

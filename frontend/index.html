@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Attendance Management System</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f4f8;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .container {
+      text-align: center;
+      background: #fff;
+      padding: 40px 60px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 30px;
+    }
+    .btn {
+      display: inline-block;
+      margin: 15px;
+      padding: 14px 30px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+      text-decoration: none;
+      color: white;
+    }
+    .teacher-btn {
+      background-color: #2980b9;
+    }
+    .teacher-btn:hover {
+      background-color: #1f5f87;
+    }
+    .student-btn {
+      background-color: #27ae60;
+    }
+    .student-btn:hover {
+      background-color: #1c8447;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Welcome to Attendance Management System</h1>
+    <a href="teacher-dashboard.html" class="btn teacher-btn">Teacher Dashboard</a>
+    <a href="student-dashboard.html" class="btn student-btn">Student Dashboard</a>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Student Attendance Dashboard</title>
+  <style>
+    /* [No CSS changes - existing CSS retained as-is] */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f7f9fc;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #e5eff4;
+      padding: 25px 30px;
+      border-radius: 8px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 25px;
+      font-weight: 700;
+    }
+    .alert {
+      background-color: #f44336;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 5px;
+      text-align: center;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .loading {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #555;
+      margin-bottom: 20px;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #2980b9;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      margin-right: 10px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    #chart {
+      max-width: 400px;
+      max-height: 400px;
+      height: 300px;
+      width: 300px;
+      margin: 0 auto;
+      display: block;
+    }
+    #days-needed {
+      font-size: 18px;
+      font-weight: 600;
+      color: #34495e;
+      text-align: center;
+      margin-bottom: 25px;
+    }
+    #details {
+      background: #ecf0f1;
+      border-radius: 6px;
+      padding: 15px 20px;
+      max-height: 200px;
+      overflow-y: auto;
+      box-shadow: inset 0 0 8px rgba(0,0,0,0.05);
+    }
+    #detail-title {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #2980b9;
+      font-weight: 700;
+    }
+    #detail-list {
+      list-style: disc inside;
+      padding-left: 0;
+      margin: 0;
+      color: #2c3e50;
+      font-size: 16px;
+    }
+    #detail-list li {
+      margin-bottom: 6px;
+    }
+    @media (max-width: 480px) {
+      .container {
+        padding: 15px 20px;
+      }
+      h1 {
+        font-size: 1.6rem;
+      }
+      #days-needed {
+        font-size: 16px;
+      }
+    }
+    .ams {
+      background-color: #bdf98f;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <button id="logoutBtn" style="
+    position: fixed; bottom:40px; right:150px; padding: 0.5rem 1rem;
+    background-color: #e53935; color: white; border: none; border-radius: 5px;
+    cursor: pointer;
+  ">Logout</button>
+
+  <div class="container">
+    <h1 class="ams">Student Attendance Dashboard</h1>
+
+    <div id="alert" class="alert" style="display:none;">
+      Your attendance is below the 80% threshold! Please improve your attendance.
+    </div>
+
+    <div id="loading" class="loading" style="display:none;">
+      <div class="spinner"></div> Loading attendance data...
+    </div>
+
+    <canvas id="chart"></canvas>
+
+    <p id="days-needed">You need <span id="days-to-attend">0</span> more days to reach the attendance threshold.</p>
+
+    <div id="details" style="display:none;">
+      <h3 id="detail-title"></h3>
+      <ul id="detail-list"></ul>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const token = localStorage.getItem("token");
+    const studentId = localStorage.getItem("studentId") || 1;
+    const threshold = 80;
+    let chartInstance;
+    let presentDates = [], absentDates = [];
+
+    async function loadAttendanceData(studentId) {
+      try {
+        document.getElementById('loading').style.display = 'flex';
+        document.getElementById('chart').style.display = 'none';
+        document.getElementById('alert').style.display = 'none';
+        document.getElementById('details').style.display = 'none';
+        document.getElementById('days-needed').style.display = 'none';
+
+        const resWorkingDays = await fetch('http://localhost:3000/attendance/working-days', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const workingDaysData = await resWorkingDays.json();
+        const totalWorkingDays = workingDaysData.total_days || workingDaysData.working_days;
+        if (!totalWorkingDays) throw new Error("Total working days not found");
+
+        const [summaryRes, datesRes] = await Promise.all([
+          fetch(`http://localhost:3000/attendance/summary/${studentId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`http://localhost:3000/attendance/dates/${studentId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
+
+        const summary = await summaryRes.json();
+        const dates = await datesRes.json();
+
+        const present = summary.present_days || 0;
+        const absent = summary.absent_days || 0;
+
+        presentDates = dates.filter(d => d.status.toLowerCase() === 'present').map(d => d.date);
+        absentDates = dates.filter(d => d.status.toLowerCase() === 'absent').map(d => d.date);
+
+        const presentPercent = ((present / totalWorkingDays) * 100).toFixed(1);
+        const absentPercent = ((absent / totalWorkingDays) * 100).toFixed(1);
+
+        const ctx = document.getElementById('chart').getContext('2d');
+        if (chartInstance) chartInstance.destroy();
+
+        chartInstance = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: [`Present (${presentPercent}%)`, `Absent (${absentPercent}%)`],
+            datasets: [{
+              data: [present, totalWorkingDays - present],
+              backgroundColor: ['#2ecc71', '#e74c3c'],
+              hoverOffset: 20
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom' }
+            },
+            onClick: (evt, elements) => {
+              if (elements.length > 0) {
+                const index = elements[0].index;
+                showDetails(index === 0 ? 'present' : 'absent');
+              }
+            }
+          }
+        });
+
+        const alertBox = document.getElementById('alert');
+        if (presentPercent >= threshold) {
+          alertBox.style.display = 'none';
+        } else {
+          alertBox.style.display = 'block';
+        }
+
+        const requiredDays = Math.ceil((threshold / 100) * totalWorkingDays);
+        const daysToAttend = requiredDays - present;
+        document.getElementById('days-to-attend').innerText = daysToAttend > 0 ? daysToAttend : 0;
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('chart').style.display = 'block';
+        document.getElementById('days-needed').style.display = 'block';
+
+      } catch (error) {
+        console.error('Error loading data:', error);
+        document.getElementById('loading').innerHTML = `<span style="color:red;">Failed to load attendance data. Please try again later.</span>`;
+      }
+    }
+
+    function showDetails(type) {
+      const detailSection = document.getElementById('details');
+      const detailTitle = document.getElementById('detail-title');
+      const detailList = document.getElementById('detail-list');
+
+      const dates = type === 'present' ? presentDates : absentDates;
+      detailTitle.innerText = type === 'present' ? 'Present Dates:' : 'Absent Dates:';
+      detailList.innerHTML = dates.length
+        ? dates.map(date => `<li>${new Date(date).toLocaleDateString()}</li>`).join('')
+        : '<li>No records found</li>';
+      detailSection.style.display = 'block';
+
+      detailList.scrollTop = 0;
+    }
+
+    loadAttendanceData(studentId);
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("studentId");
+      window.location.href = "login.html";
+    });
+  </script>
+</body>
+</html>

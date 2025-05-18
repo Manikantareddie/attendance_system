@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login - Attendance System</title>
+  <style>
+    /* Reset & base */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #6b73ff, #000dff);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+    }
+    .login-container {
+      background: white;
+      padding: 2.5rem 3rem;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      width: 320px;
+    }
+    h2 {
+      margin-bottom: 1.5rem;
+      color: #333;
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.4rem;
+      font-weight: 600;
+      color: #555;
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 1.25rem;
+      border: 1.5px solid #ddd;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #3f51b5;
+    }
+    button {
+      width: 100%;
+      padding: 0.6rem;
+      background-color: #3f51b5;
+      color: white;
+      font-weight: 700;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #2c387e;
+    }
+    .error-message {
+      color: #e53935;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>Login</h2>
+    <div id="error" class="error-message"></div>
+    <form id="loginForm">
+      <label for="username">Username</label>
+      <input type="text" id="username" required autocomplete="off" />
+      <label for="password">Password</label>
+      <input type="password" id="password" required autocomplete="off" />
+      <button type="submit">Login</button>
+    </form>
+  </div>
+
+<script>
+  const form = document.getElementById('loginForm');
+  const errorDiv = document.getElementById('error');
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    errorDiv.style.display = 'none';
+
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+
+    try {
+      const response = await fetch('/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Save token and role info
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('role', data.role);
+      localStorage.setItem('userId', data.id);
+
+      // Save related student or teacher ID for dashboard usage
+      if (data.role === 'student') {
+        // Make sure backend sends 'studentId' here for the logged-in student
+        localStorage.setItem('studentId', data.studentId || data.relatedStudentId || data.id);
+        window.location.href = 'student-dashboard.html';
+      } else if (data.role === 'teacher') {
+        localStorage.setItem('teacherId', data.teacherId || data.relatedTeacherId || data.id);
+        window.location.href = 'teacher-dashboard.html';
+      } else {
+        // For other roles or fallback
+        window.location.href = 'index.html';
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      errorDiv.textContent = err.message;
+      errorDiv.style.display = 'block';
+    }
+  });
+</script>
+
+</body>
+</html>
